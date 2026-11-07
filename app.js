@@ -37,15 +37,60 @@ const PATTERN_RU = {
   prone: "лежания на животе", balance: "стоек на одной ноге", "supine-long": "долгого лежания на спине",
   "calf-load": "подъёмов на носки", bike: "велосипеда"
 };
-const VOICE = {
-  m: {
-    start: "Сэр, начали.", ten: "Сэр, осталось десять секунд.", rest: "Сэр, отдых. Дышите ровно.",
-    done: "Сэр, время.", next: "Сэр, можно продолжать.", over: "Сэр, на сегодня достаточно."
-  },
-  f: {
-    start: "Мэм, начали.", ten: "Мэм, осталось десять секунд.", rest: "Мэм, отдых. Дышите ровно.",
-    done: "Мэм, время.", next: "Мэм, можно продолжать.", over: "Мэм, на сегодня достаточно."
-  }
+const LINE_POOL = {
+  start: [
+    "{who}, начали.",
+    "{who}, время пошло.",
+    "{who}, приступайте.",
+    "{who}, я засеку.",
+    "{who}, {move}. Можно начинать.",
+    "{who}, спокойно и ровно. Начали.",
+    "{who}, не спешите. Время пошло.",
+    "{who}, работаем."
+  ],
+  ten: [
+    "{who}, осталось десять секунд.",
+    "{who}, десять секунд.",
+    "{who}, ещё десять.",
+    "{who}, финиш близко. Десять секунд.",
+    "{who}, держитесь, десять секунд.",
+    "{who}, почти всё. Десять секунд.",
+    "{who}, не сбавляйте. Десять.",
+    "{who}, осталось десять, потом выдох."
+  ],
+  rest: [
+    "{who}, отдых. Дышите ровно.",
+    "{who}, пауза. Плечи вниз.",
+    "{who}, переведите дыхание.",
+    "{who}, отдых. Руки можно опустить.",
+    "{who}, хорошая работа. Отдыхайте.",
+    "{who}, стоп. Вдох и длинный выдох.",
+    "{who}, пауза. Не проверяйте телефон."
+  ],
+  done: [
+    "{who}, время.",
+    "{who}, достаточно на этот отрезок.",
+    "{who}, стоп.",
+    "{who}, время вышло.",
+    "{who}, можно опустить.",
+    "{who}, хватит. Дышите ровно."
+  ],
+  next: [
+    "{who}, можно продолжать.",
+    "{who}, следующий подход.",
+    "{who}, когда будете готовы.",
+    "{who}, отдых кончился.",
+    "{who}, возвращаемся.",
+    "{who}, ещё подход, если есть силы."
+  ],
+  over: [
+    "{who}, на сегодня достаточно.",
+    "{who}, тренировка закрыта.",
+    "{who}, вы сделали своё. Хватит.",
+    "{who}, хороший день. Отпускаю вас.",
+    "{who}, на этом всё.",
+    "{who}, курс на сегодня выполнен."
+  ]
 };
 
 function fresh() {
@@ -183,37 +228,61 @@ function avoidText(flags) {
 }
 
 let timer = null;
-let voiceEl = null;
+let lastTemplate = "";
 function clockText(sec) {
   sec = Math.max(0, sec | 0);
   return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
 }
-function speakFallback(text) {
+function currentMove() {
+  if (state.open == null) return null;
+  const block = planDay(state.profile, state.day || courseDay());
+  return block.items[state.open] || null;
+}
+function fillLine(template, who, move) {
+  return template.replace(/\{who\}/g, who).replace(/\{move\}/g, move);
+}
+function composeLine(kind) {
+  const who = state.profile.sex === "f" ? "Мэм" : "Сэр";
+  const moveName = (currentMove() || {}).name || "";
+  const move = moveName.toLowerCase();
+  let pool = (LINE_POOL[kind] || LINE_POOL.done).filter(template => move || template.indexOf("{move}") < 0);
+  if (!pool.length) pool = LINE_POOL.done;
+  let template = pool[Math.floor(Math.random() * pool.length)];
+  for (let i = 0; i < 6 && template === lastTemplate && pool.length > 1; i++) {
+    template = pool[Math.floor(Math.random() * pool.length)];
+  }
+  lastTemplate = template;
+  return fillLine(template, who, move);
+}
+function russianVoice() {
+  const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  return voices.find(v => /ru/i.test(v.lang) && /dmitry|pavel|male/i.test(v.name)) || voices.find(v => /ru/i.test(v.lang)) || null;
+}
+function speakLive(text) {
   if (!window.speechSynthesis) return;
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "ru-RU";
-  utter.rate = 0.92;
-  utter.pitch = 0.85;
-  const voices = speechSynthesis.getVoices();
-  const male = voices.find(v => /ru/i.test(v.lang) && /dmitry|pavel|male/i.test(v.name)) || voices.find(v => /ru/i.test(v.lang));
-  if (male) utter.voice = male;
+  utter.rate = 0.9;
+  utter.pitch = 0.8;
+  const voice = russianVoice();
+  if (voice) utter.voice = voice;
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
 }
 function say(id) {
-  const who = state.profile.sex === "f" ? "f" : "m";
-  const text = VOICE[who][id] || "";
+  const text = composeLine(id);
   if (state.clock) state.clock.line = text;
   const line = document.getElementById("said");
   if (line) line.textContent = text;
   if (state.profile.voice === false) {
-    if (voiceEl) voiceEl.pause();
+    if (window.speechSynthesis) speechSynthesis.cancel();
     return;
   }
-  if (!voiceEl) voiceEl = new Audio();
-  voiceEl.src = "voice/" + who + "-" + id + ".mp3";
-  const played = voiceEl.play();
-  if (played && played.catch) played.catch(() => speakFallback(text));
+  speakLive(text);
+}
+if (window.speechSynthesis) {
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 }
 function ensureTimer() {
   if (timer) return;
@@ -328,7 +397,7 @@ function setupHtml() {
     <div class="group">${base.map(item => tick("goal", item[0], item[1], p.goal === item[0], true)).join("")}</div>
     <div class="kicker">За 30 дней</div>
     <div class="group">${order.map(id => tick("goal", id, GOALS[id].label, p.goal === id, true)).join("")}</div>
-    <p class="lead">Шесть рабочих дней и один спокойный. Джарвис на таймере скажет, когда останется 10 секунд: сэр или мэм — по полу из анкеты.</p>
+    <p class="lead">Шесть рабочих дней и один спокойный. На таймере Джарвис каждый раз собирает новую фразу: сэр или мэм — по полу из анкеты.</p>
     ${dock("finish", "Собрать курс")}</div>`;
 }
 function tick(key, id, label, on, single) {
@@ -427,7 +496,7 @@ function moveHtml(block) {
     <ol class="steps">${(ex.steps || []).map(step => `<li>${esc(step)}</li>`).join("")}</ol>
     <div class="card">
       <div class="timer" id="clock">${clockText(left)}</div>
-      <p class="jarvis" id="said">${esc(clock && clock.line || "На десяти секундах скажет: " + who + ", осталось десять секунд.")}</p>
+      <p class="jarvis" id="said">${esc(clock && clock.line || "Фраза собирается в момент старта. На десяти секундах " + who + " услышит новый вариант.")}</p>
       <div class="bar"><i id="clockbar" style="width:${clock ? Math.max(0, (clock.left / clock.total) * 100) : 100}%"></i></div>
       <div class="pair">
         <button class="primary" data-act="go" data-sec="${ex.kind === "time" ? (ex.seconds || 40) : 40}">${ex.kind === "time" ? "Старт" : "40 секунд"}</button>
@@ -707,11 +776,11 @@ function bind() {
     else if (act === "rest") startClock(+el.dataset.sec, "rest");
     else if (act === "stop") {
       if (state.clock) state.clock.run = false;
-      if (voiceEl) voiceEl.pause();
+      if (window.speechSynthesis) speechSynthesis.cancel();
       render();
     } else if (act === "mute") {
       state.profile.voice = state.profile.voice === false;
-      if (state.profile.voice === false && voiceEl) voiceEl.pause();
+      if (state.profile.voice === false && window.speechSynthesis) speechSynthesis.cancel();
       render();
     } else if (act === "over") say("over");
     else if (act === "pick") showPick(localHits[+el.dataset.i]);
