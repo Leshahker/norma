@@ -90,7 +90,19 @@ const LINE_POOL = {
     "{who}, хороший день. Отпускаю вас.",
     "{who}, на этом всё.",
     "{who}, курс на сегодня выполнен."
-  ]
+  ],
+  day: ["{who}, вот план на сегодня.", "{who}, смотрите день."],
+  calm: ["{who}, сегодня спокойно.", "{who}, лёгкий день."],
+  jump: ["{who}, сегодня без прыжков.", "{who}, прыжки не надо."],
+  back: ["{who}, бережём спину.", "{who}, без наклонов сегодня."],
+  easy: ["{who}, нагрузку снизил.", "{who}, сегодня полегче."],
+  danger: ["{who}, сегодня без силовой.", "{who}, берегите себя."],
+  food: ["{who}, записал.", "{who}, принято."],
+  protein: ["{who}, белок закрыт.", "{who}, норма белка есть."],
+  kcal: ["{who}, калории закрыты.", "{who}, по еде хватит."],
+  water: ["{who}, плюс стакан.", "{who}, вода отмечена."],
+  wdone: ["{who}, вода на сегодня есть.", "{who}, норма воды закрыта."],
+  course: ["{who}, курс собран. Тридцать дней.", "{who}, план готов. Тридцать дней."]
 };
 
 function fresh() {
@@ -227,26 +239,37 @@ function avoidText(flags) {
   return words.slice(0, 4).join(", ");
 }
 
-const FISH_POOL = {
-  start: [
-    ["Сэр, начали.", "voice/fish/m-start-0.mp3"],
-    ["Сэр, время пошло.", "voice/fish/m-start-1.mp3"],
-    ["Сэр, приступайте.", "voice/fish/m-start-2.mp3"],
-    ["Сэр, я засеку.", "voice/fish/m-start-3.mp3"],
-    ["Сэр, спокойно и ровно. Начали.", "voice/fish/m-start-4.mp3"],
-    ["Сэр, не спешите. Время пошло.", "voice/fish/m-start-5.mp3"],
-    ["Сэр, работаем.", "voice/fish/m-start-6.mp3"]
-  ],
-  ten: [
-    ["Сэр, осталось десять секунд.", "voice/fish/m-ten-0.mp3"],
-    ["Сэр, десять секунд.", "voice/fish/m-ten-1.mp3"],
-    ["Сэр, ещё десять.", "voice/fish/m-ten-2.mp3"],
-    ["Сэр, финиш близко. Десять секунд.", "voice/fish/m-ten-3.mp3"],
-    ["Сэр, держитесь, десять секунд.", "voice/fish/m-ten-4.mp3"]
-  ]
+const FISH_LINES = {
+  start: ["начали.", "время пошло.", "приступайте.", "я засеку.", "спокойно и ровно. Начали.", "не спешите. Время пошло.", "работаем."],
+  ten: ["осталось десять секунд.", "десять секунд.", "ещё десять.", "финиш близко. Десять секунд.", "держитесь, десять секунд."],
+  rest: ["отдых. Дышите ровно.", "пауза. Плечи вниз.", "переведите дыхание.", "хорошая работа. Отдыхайте."],
+  done: ["время.", "стоп.", "время вышло.", "хватит. Дышите ровно."],
+  next: ["можно продолжать.", "следующий подход.", "отдых кончился.", "возвращаемся."],
+  over: ["на сегодня достаточно.", "тренировка закрыта.", "хороший день. Отпускаю вас.", "на этом всё."],
+  day: ["вот план на сегодня.", "смотрите день."],
+  calm: ["сегодня спокойно.", "лёгкий день."],
+  jump: ["сегодня без прыжков.", "прыжки не надо."],
+  back: ["бережём спину.", "без наклонов сегодня."],
+  easy: ["нагрузку снизил.", "сегодня полегче."],
+  danger: ["сегодня без силовой.", "берегите себя."],
+  food: ["записал.", "принято."],
+  protein: ["белок закрыт.", "норма белка есть."],
+  kcal: ["калории закрыты.", "по еде хватит."],
+  water: ["плюс стакан.", "вода отмечена."],
+  wdone: ["вода на сегодня есть.", "норма воды закрыта."],
+  course: ["курс собран. Тридцать дней.", "план готов. Тридцать дней."]
 };
+const FISH_POOL = { m: {}, f: {} };
+Object.keys(FISH_LINES).forEach(kind => {
+  ["m", "f"].forEach(sex => {
+    const who = sex === "f" ? "Мэм" : "Сэр";
+    FISH_POOL[sex][kind] = FISH_LINES[kind].map((line, i) => [who + ", " + line, "voice/fish/" + sex + "-" + kind + "-" + i + ".mp3?v=7"]);
+  });
+});
 let timer = null;
 let voiceEl = null;
+let voiceBusy = false;
+let voiceQueue = [];
 let lastTemplate = "";
 let lastFish = "";
 function clockText(sec) {
@@ -278,19 +301,24 @@ function russianVoice() {
   const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
   return voices.find(v => /ru/i.test(v.lang) && /dmitry|pavel|male/i.test(v.name)) || voices.find(v => /ru/i.test(v.lang)) || null;
 }
-function speakLive(text) {
-  if (!window.speechSynthesis) return;
+function speakLive(text, onend) {
+  if (!window.speechSynthesis) { if (onend) onend(); return; }
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = "ru-RU";
   utter.rate = 0.9;
   utter.pitch = 0.8;
   const voice = russianVoice();
   if (voice) utter.voice = voice;
+  let finished = false;
+  const finish = () => { if (finished) return; finished = true; if (onend) onend(); };
+  utter.onend = finish;
+  utter.onerror = finish;
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
 }
 function fishLine(kind) {
-  const pool = state.profile.sex === "f" ? null : FISH_POOL[kind];
+  const sex = state.profile.sex === "f" ? "f" : "m";
+  const pool = (FISH_POOL[sex] || {})[kind];
   if (!pool || !pool.length) return null;
   let pick = pool[Math.floor(Math.random() * pool.length)];
   for (let i = 0; i < 6 && pick[1] === lastFish && pool.length > 1; i++) {
@@ -299,27 +327,77 @@ function fishLine(kind) {
   lastFish = pick[1];
   return { text: pick[0], src: pick[1] };
 }
-function say(id) {
-  const fish = fishLine(id);
-  const text = fish ? fish.text : composeLine(id);
+function showLine(text, id) {
+  const homeKind = { day: 1, calm: 1, jump: 1, back: 1, easy: 1, danger: 1, food: 1, protein: 1, kcal: 1, water: 1, wdone: 1, course: 1 }[id];
+  if (homeKind) {
+    state.voiceMark = state.voiceMark || {};
+    state.voiceMark.line = text;
+    save();
+  }
   if (state.clock) state.clock.line = text;
   const line = document.getElementById("said");
   if (line) line.textContent = text;
-  if (state.profile.voice === false) {
-    if (voiceEl) voiceEl.pause();
-    if (window.speechSynthesis) speechSynthesis.cancel();
-    return;
-  }
+  const heard = document.getElementById("heard");
+  if (heard && homeKind) { heard.hidden = false; heard.textContent = text; }
+}
+function hush() {
+  voiceQueue = [];
+  voiceBusy = false;
+  if (voiceEl) { voiceEl.onended = null; voiceEl.pause(); }
+  if (window.speechSynthesis) speechSynthesis.cancel();
+}
+function pumpVoice() {
+  if (voiceBusy) return;
+  const id = voiceQueue.shift();
+  if (!id) return;
+  const fish = fishLine(id);
+  const text = fish ? fish.text : composeLine(id);
+  showLine(text, id);
+  if (state.profile.voice === false) { voiceQueue = []; return; }
+  const done = () => { voiceBusy = false; pumpVoice(); };
   if (fish) {
     if (window.speechSynthesis) speechSynthesis.cancel();
     if (!voiceEl) voiceEl = new Audio();
+    voiceBusy = true;
+    voiceEl.onended = null;
     voiceEl.src = fish.src;
+    voiceEl.onended = done;
     const played = voiceEl.play();
-    if (played && played.catch) played.catch(() => speakLive(text));
+    if (played && played.catch) played.catch(() => { voiceEl.onended = null; speakLive(text, done); });
     return;
   }
-  if (voiceEl) voiceEl.pause();
-  speakLive(text);
+  voiceBusy = true;
+  if (voiceEl) { voiceEl.onended = null; voiceEl.pause(); }
+  speakLive(text, done);
+}
+function say(id, thenId) {
+  const urgent = { start: 1, ten: 1, rest: 1, done: 1, next: 1, over: 1 }[id];
+  const speaking = window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending);
+  const playing = voiceEl && !voiceEl.paused && !voiceEl.ended;
+  if (urgent || (voiceBusy && !speaking && !playing)) {
+    if (urgent) hush();
+    else voiceBusy = false;
+  }
+  voiceQueue.push(id);
+  if (thenId) voiceQueue.push(thenId);
+  pumpVoice();
+}
+function limitKind(flags) {
+  if (!flags || flags.stop || !flags.avoid || !flags.avoid.size) return "";
+  if (flags.avoid.has("impact") || flags.avoid.has("jump") || flags.avoid.has("run")) return "jump";
+  if (flags.avoid.has("hinge") || flags.avoid.has("spinal-flex") || flags.avoid.has("twist") || flags.avoid.has("crunch")) return "back";
+  return "easy";
+}
+function greetToday() {
+  if (state.screen !== "home" || !state.started) return;
+  const today = todayKey();
+  state.voiceMark = state.voiceMark || {};
+  if (state.voiceMark.day === today) return;
+  const block = planDay(state.profile, courseDay());
+  state.voiceMark.day = today;
+  if (block.flags.stop) { say("danger"); return; }
+  const limit = limitKind(block.flags);
+  say(block.rest ? "calm" : "day", limit || undefined);
 }
 if (window.speechSynthesis) {
   speechSynthesis.getVoices();
@@ -369,6 +447,7 @@ function render() {
   app.innerHTML = state.screen === "setup" ? setupHtml() : mainHtml();
   bind();
   syncTelegram();
+  greetToday();
   save();
 }
 
@@ -476,6 +555,7 @@ function mainHtml() {
   const banned = avoidText(block.flags);
   return `<div class="page">
     <div class="top"><div><div class="kicker">День ${day} из 30</div><h1>${esc(p.name || "Сегодня")}</h1></div><button class="link" data-act="reset">Сначала</button></div>
+    <p class="jarvis" id="heard"${state.voiceMark && state.voiceMark.line ? "" : " hidden"}>${esc((state.voiceMark && state.voiceMark.line) || "")}</p>
     <div class="stats"><div class="stat"><b>${t.kcal}</b><span>ккал</span></div><div class="stat"><b>${t.protein}</b><span>белок, г</span></div><div class="stat"><b>${t.bmi}</b><span>индекс</span></div></div>
     <div class="card"><div class="top"><b>Вода</b><span class="kicker">${drunk} / ${t.water} мл</span></div><div class="bar"><i style="width:${Math.min(100, t.water ? (drunk / t.water) * 100 : 0)}%"></i></div><button class="primary" data-act="water">+ 250 мл</button></div>
     <button class="tick" data-act="food" style="border-radius:16px"><span><b>Еда</b><br><small style="color:#6e6e73">${Math.round(kcal)} ккал · белок ${Math.round(protein)} г</small></span><span class="chev">›</span></button>
@@ -711,6 +791,19 @@ function pushMeal(name, kcal, p) {
   state.food[key] = state.food[key] || [];
   state.food[key].push({ name: name, kcal: Math.round(kcal), p: Math.round(p * 10) / 10 });
 }
+function mealTotals() {
+  const meals = state.food[todayKey()] || [];
+  return {
+    kcal: meals.reduce((sum, meal) => sum + (+meal.kcal || 0), 0),
+    protein: meals.reduce((sum, meal) => sum + (+meal.p || 0), 0)
+  };
+}
+function sayMeal(before, after) {
+  const t = targets(state.profile);
+  if (before.protein < t.protein && after.protein >= t.protein) say("protein");
+  else if (before.kcal < t.kcal && after.kcal >= t.kcal) say("kcal");
+  else say("food");
+}
 function applyHealthFilter() {
   const query = foodText(healthQuery);
   document.querySelectorAll("[data-health-item]").forEach(el => {
@@ -792,11 +885,17 @@ function bind() {
       state.started = todayKey();
       state.day = 1;
       state.screen = "home";
+      state.voiceMark = state.voiceMark || {};
+      state.voiceMark.day = todayKey();
       render();
+      say("course");
     } else if (act === "water") {
       const key = todayKey();
+      const before = (state.water[key] || 0) * 250;
       state.water[key] = (state.water[key] || 0) + 1;
+      const after = state.water[key] * 250;
       render();
+      say(before < targets(state.profile).water && after >= targets(state.profile).water ? "wdone" : "water");
     } else if (act === "food") {
       state.screen = "food";
       picked = null;
@@ -817,15 +916,11 @@ function bind() {
     else if (act === "rest") startClock(+el.dataset.sec, "rest");
     else if (act === "stop") {
       if (state.clock) state.clock.run = false;
-      if (voiceEl) voiceEl.pause();
-      if (window.speechSynthesis) speechSynthesis.cancel();
+      hush();
       render();
     } else if (act === "mute") {
       state.profile.voice = state.profile.voice === false;
-      if (state.profile.voice === false) {
-        if (voiceEl) voiceEl.pause();
-        if (window.speechSynthesis) speechSynthesis.cancel();
-      }
+      if (state.profile.voice === false) hush();
       render();
     } else if (act === "over") say("over");
     else if (act === "pick") showPick(localHits[+el.dataset.i]);
@@ -837,16 +932,22 @@ function bind() {
       const grams = +document.getElementById("grams").value;
       if (!picked || !(grams >= 1 && grams <= 2000)) { foodMsg("Граммы от 1 до 2000."); return; }
       const meal = mealPortion(picked, grams);
+      const before = mealTotals();
       pushMeal(meal.name, meal.kcal, meal.p);
+      const after = mealTotals();
       picked = null;
       render();
+      sayMeal(before, after);
     } else if (act === "addmeal") {
       const name = document.getElementById("meal").value.trim();
       const kcal = +document.getElementById("mkcal").value;
       const protein = +document.getElementById("mp").value || 0;
       if (!name || !(kcal > 0)) { foodMsg("Нужны название и калории."); return; }
+      const before = mealTotals();
       pushMeal(name, kcal, protein);
+      const after = mealTotals();
       render();
+      sayMeal(before, after);
     } else if (act === "delmeal") {
       (state.food[todayKey()] || []).splice(+el.dataset.i, 1);
       render();
