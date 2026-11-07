@@ -227,8 +227,28 @@ function avoidText(flags) {
   return words.slice(0, 4).join(", ");
 }
 
+const FISH_POOL = {
+  start: [
+    ["Сэр, начали.", "voice/fish/m-start-0.mp3"],
+    ["Сэр, время пошло.", "voice/fish/m-start-1.mp3"],
+    ["Сэр, приступайте.", "voice/fish/m-start-2.mp3"],
+    ["Сэр, я засеку.", "voice/fish/m-start-3.mp3"],
+    ["Сэр, спокойно и ровно. Начали.", "voice/fish/m-start-4.mp3"],
+    ["Сэр, не спешите. Время пошло.", "voice/fish/m-start-5.mp3"],
+    ["Сэр, работаем.", "voice/fish/m-start-6.mp3"]
+  ],
+  ten: [
+    ["Сэр, осталось десять секунд.", "voice/fish/m-ten-0.mp3"],
+    ["Сэр, десять секунд.", "voice/fish/m-ten-1.mp3"],
+    ["Сэр, ещё десять.", "voice/fish/m-ten-2.mp3"],
+    ["Сэр, финиш близко. Десять секунд.", "voice/fish/m-ten-3.mp3"],
+    ["Сэр, держитесь, десять секунд.", "voice/fish/m-ten-4.mp3"]
+  ]
+};
 let timer = null;
+let voiceEl = null;
 let lastTemplate = "";
+let lastFish = "";
 function clockText(sec) {
   sec = Math.max(0, sec | 0);
   return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0");
@@ -269,15 +289,36 @@ function speakLive(text) {
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
 }
+function fishLine(kind) {
+  const pool = state.profile.sex === "f" ? null : FISH_POOL[kind];
+  if (!pool || !pool.length) return null;
+  let pick = pool[Math.floor(Math.random() * pool.length)];
+  for (let i = 0; i < 6 && pick[1] === lastFish && pool.length > 1; i++) {
+    pick = pool[Math.floor(Math.random() * pool.length)];
+  }
+  lastFish = pick[1];
+  return { text: pick[0], src: pick[1] };
+}
 function say(id) {
-  const text = composeLine(id);
+  const fish = fishLine(id);
+  const text = fish ? fish.text : composeLine(id);
   if (state.clock) state.clock.line = text;
   const line = document.getElementById("said");
   if (line) line.textContent = text;
   if (state.profile.voice === false) {
+    if (voiceEl) voiceEl.pause();
     if (window.speechSynthesis) speechSynthesis.cancel();
     return;
   }
+  if (fish) {
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    if (!voiceEl) voiceEl = new Audio();
+    voiceEl.src = fish.src;
+    const played = voiceEl.play();
+    if (played && played.catch) played.catch(() => speakLive(text));
+    return;
+  }
+  if (voiceEl) voiceEl.pause();
   speakLive(text);
 }
 if (window.speechSynthesis) {
@@ -776,11 +817,15 @@ function bind() {
     else if (act === "rest") startClock(+el.dataset.sec, "rest");
     else if (act === "stop") {
       if (state.clock) state.clock.run = false;
+      if (voiceEl) voiceEl.pause();
       if (window.speechSynthesis) speechSynthesis.cancel();
       render();
     } else if (act === "mute") {
       state.profile.voice = state.profile.voice === false;
-      if (state.profile.voice === false && window.speechSynthesis) speechSynthesis.cancel();
+      if (state.profile.voice === false) {
+        if (voiceEl) voiceEl.pause();
+        if (window.speechSynthesis) speechSynthesis.cancel();
+      }
       render();
     } else if (act === "over") say("over");
     else if (act === "pick") showPick(localHits[+el.dataset.i]);
