@@ -94,7 +94,9 @@ h1, h2, p { margin: 0; }
 .nav {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   min-height: 44px;
+  gap: 12px;
 }
 .back, .link {
   border: 0;
@@ -258,6 +260,226 @@ textarea { min-height: 72px; resize: vertical; }
 .hint ol { margin: 8px 0 0; padding-left: 18px; }
 .ghost.wide, .wide { width: 100%; margin-top: 8px; }
 .jarvis { min-height: 1.3em; text-align: center; color: var(--muted); font-size: 15px; }
+.folders { display: flex; flex-direction: column; gap: 10px; }
+.folder { background: #fff; border-radius: 18px; overflow: hidden; }
+.folder-bar { display: flex; align-items: center; min-height: 58px; }
+.folder-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  border: 0;
+  background: transparent;
+  padding: 0 8px 0 18px;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: left;
+}
+.folder-name small { color: var(--blue); font-size: 15px; font-weight: 600; }
+.foldx {
+  width: 32px;
+  height: 32px;
+  margin-right: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: #f2f2f7;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.folder.open .foldx { opacity: 1; pointer-events: auto; }
+.folder-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.folder.open .folder-body { grid-template-rows: 1fr; }
+.folder-in { overflow: hidden; }
+.folder .group { border-radius: 0; }
+
+.exrow {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 0.5px solid var(--line);
+  background: #fff;
+  text-align: left;
+}
+.exrow:last-child { border-bottom: 0; }
+.exico {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ececf1;
+  display: grid;
+  place-items: center;
+  color: #1d1d1f;
+}
+.exico .glyph { width: 42px; height: 42px; display: block; }
+.glyph path, .glyph circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.exrow b { display: block; font-size: 16px; font-weight: 600; line-height: 1.2; }
+.extime { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 14px 14px calc(14px + var(--safe-b));
+  background: rgba(242, 242, 247, 0.28);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+}
+.sheet {
+  width: min(520px, 100%);
+  max-height: min(86dvh, 740px);
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 22px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.16);
+}
+.sheet-top { display: flex; align-items: flex-start; gap: 12px; }
+.sheet-top h2 { flex: 1; font-size: 28px; letter-spacing: -0.03em; line-height: 1.05; }
+.sheetx {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 0;
+  border-radius: 50%;
+  background: #f2f2f7;
+  font-size: 22px;
+  line-height: 1;
+}
+.stage {
+  position: relative;
+  height: 230px;
+  margin-top: 14px;
+  border-radius: 18px;
+  background: #f2f2f7;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.stage .stick, .stage .demo { width: min(86%, 220px); height: 200px; }
+.demo path, .demo circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.demo .b { animation: demo-swap 1.6s ease-in-out infinite; }
+@keyframes demo-swap {
+  0%, 28% { opacity: 0; }
+  42%, 72% { opacity: 1; }
+  86%, 100% { opacity: 0; }
+}
+.stage-time {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+}
+.stick .head { fill: none; stroke: currentColor; stroke-width: 3; }
+.stick path { fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.stick .arm.l, .stick .leg.l { transform-box: fill-box; transform-origin: 100% 0%; }
+.stick .arm.r, .stick .leg.r { transform-box: fill-box; transform-origin: 0% 0%; }
+.stick .upper, .stick .man { transform-box: fill-box; transform-origin: 50% 100%; }
+.stick[data-pose="squat"] .man { animation: pose-drop 1.6s ease-in-out infinite; }
+.stick[data-pose="squat"] .leg.l { animation: pose-knee-l 1.6s ease-in-out infinite; }
+.stick[data-pose="squat"] .leg.r { animation: pose-knee-r 1.6s ease-in-out infinite; }
+.stick[data-pose="push"] .arm.l { animation: pose-push-l 1.6s ease-in-out infinite; }
+.stick[data-pose="push"] .arm.r { animation: pose-push-r 1.6s ease-in-out infinite; }
+.stick[data-pose="hinge"] .upper { animation: pose-hinge 1.8s ease-in-out infinite; }
+.stick[data-pose="row"] .upper { animation: pose-hinge 1.8s ease-in-out infinite; }
+.stick[data-pose="row"] .arm.l { animation: pose-row-l 1.8s ease-in-out infinite; }
+.stick[data-pose="row"] .arm.r { animation: pose-row-r 1.8s ease-in-out infinite; }
+.stick[data-pose="press"] .arm.l { animation: pose-press-l 1.6s ease-in-out infinite; }
+.stick[data-pose="press"] .arm.r { animation: pose-press-r 1.6s ease-in-out infinite; }
+.stick[data-pose="curl"] .arm.l { animation: pose-curl-l 1.4s ease-in-out infinite; }
+.stick[data-pose="curl"] .arm.r { animation: pose-curl-r 1.4s ease-in-out infinite; }
+.stick[data-pose="plank"] .man { animation: pose-plank 1.8s ease-in-out infinite; }
+.stick[data-pose="bridge"] .man { animation: pose-bridge 1.8s ease-in-out infinite; }
+.stick[data-pose="bridge"] .upper { animation: pose-bridge-up 1.8s ease-in-out infinite; }
+.stick[data-pose="lunge"] .leg.l { animation: pose-lunge 1.7s ease-in-out infinite; }
+.stick[data-pose="lunge"] .leg.r { animation: pose-lunge-back 1.7s ease-in-out infinite; }
+.stick[data-pose="lunge"] .man { animation: pose-drop 1.7s ease-in-out infinite; }
+.stick[data-pose="pull"] .arm.l { animation: pose-pull-l 1.6s ease-in-out infinite; }
+.stick[data-pose="pull"] .arm.r { animation: pose-pull-r 1.6s ease-in-out infinite; }
+.stick[data-pose="pull"] .man { animation: pose-pull-body 1.6s ease-in-out infinite; }
+.stick[data-pose="jump"] .man { animation: pose-jump 0.9s ease-in-out infinite; }
+.stick[data-pose="bike"] .leg.l { animation: pose-bike-l 1s linear infinite; }
+.stick[data-pose="bike"] .leg.r { animation: pose-bike-r 1s linear infinite; }
+.stick[data-pose="walk"] .leg.l { animation: pose-walk-l 1.1s ease-in-out infinite; }
+.stick[data-pose="walk"] .leg.r { animation: pose-walk-r 1.1s ease-in-out infinite; }
+.stick[data-pose="walk"] .arm.l { animation: pose-walk-r 1.1s ease-in-out infinite; }
+.stick[data-pose="walk"] .arm.r { animation: pose-walk-l 1.1s ease-in-out infinite; }
+.stick[data-pose="twist"] .upper { animation: pose-twist 1.6s ease-in-out infinite; }
+.stick[data-pose="breath"] .man { animation: pose-breath 2.4s ease-in-out infinite; }
+.stick[data-pose="core"] .man { animation: pose-lie 1.8s ease-in-out infinite; }
+.stick[data-pose="core"] .upper { animation: pose-crunch 1.8s ease-in-out infinite; }
+.stick[data-pose="bug"] .man { animation: pose-lie 1.8s ease-in-out infinite; }
+.stick[data-pose="bug"] .arm.r { animation: pose-bug-arm 1.8s ease-in-out infinite; }
+.stick[data-pose="bug"] .leg.l { animation: pose-bug-leg 1.8s ease-in-out infinite; }
+.stick[data-pose="dog"] .man { animation: pose-plank 1.8s ease-in-out infinite; }
+.stick[data-pose="dog"] .arm.r { animation: pose-dog-arm 1.8s ease-in-out infinite; }
+.stick[data-pose="dog"] .leg.l { animation: pose-dog-leg 1.8s ease-in-out infinite; }
+@keyframes pose-drop { 0%, 100% { transform: none; } 45%, 55% { transform: translateY(16px); } }
+@keyframes pose-knee-l { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(-34deg); } }
+@keyframes pose-knee-r { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(34deg); } }
+@keyframes pose-push-l { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(-62deg); } }
+@keyframes pose-push-r { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(62deg); } }
+@keyframes pose-hinge { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(62deg); } }
+@keyframes pose-row-l { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(40deg); } }
+@keyframes pose-row-r { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(-40deg); } }
+@keyframes pose-press-l { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(-110deg); } }
+@keyframes pose-press-r { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(110deg); } }
+@keyframes pose-curl-l { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(-70deg); } }
+@keyframes pose-curl-r { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(70deg); } }
+@keyframes pose-plank { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(78deg); } }
+@keyframes pose-bridge { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(-78deg); } }
+@keyframes pose-bridge-up { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(-28deg); } }
+@keyframes pose-lunge { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(-42deg); } }
+@keyframes pose-lunge-back { 0%, 100% { transform: none; } 45%, 55% { transform: rotate(18deg); } }
+@keyframes pose-pull-l { 0%, 100% { transform: rotate(-70deg); } 45%, 55% { transform: rotate(-20deg); } }
+@keyframes pose-pull-r { 0%, 100% { transform: rotate(70deg); } 45%, 55% { transform: rotate(20deg); } }
+@keyframes pose-pull-body { 0%, 100% { transform: translateY(6px); } 45%, 55% { transform: none; } }
+@keyframes pose-jump { 0%, 100% { transform: none; } 40% { transform: translateY(-26px); } 70% { transform: translateY(3px); } }
+@keyframes pose-bike-l { from { transform: rotate(-24deg); } to { transform: rotate(336deg); } }
+@keyframes pose-bike-r { from { transform: rotate(156deg); } to { transform: rotate(516deg); } }
+@keyframes pose-walk-l { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(22deg); } }
+@keyframes pose-walk-r { 0%, 100% { transform: rotate(22deg); } 50% { transform: rotate(-22deg); } }
+@keyframes pose-twist { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
+@keyframes pose-breath { 0%, 100% { transform: scale(0.96); } 50% { transform: scale(1.06); } }
+@keyframes pose-lie { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(-76deg); } }
+@keyframes pose-crunch { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(-24deg); } }
+@keyframes pose-bug-arm { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(80deg); } }
+@keyframes pose-bug-leg { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(-50deg); } }
+@keyframes pose-dog-arm { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(55deg); } }
+@keyframes pose-dog-leg { 0%, 100% { transform: none; } 40%, 70% { transform: rotate(-36deg); } }
+
 .scan { position: fixed; inset: 0; z-index: 40; background: #000; display: flex; flex-direction: column; }
 .scan[hidden] { display: none; }
 #scan-box { flex: 1; min-height: 240px; overflow: hidden; }

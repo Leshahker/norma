@@ -433,6 +433,8 @@ function startClock(sec, mode) {
 
 let healthQuery = "";
 let healthGroup = "Все";
+let gearOpen = "";
+let sheet = null;
 let picked = null;
 let localHits = [];
 let offHits = [];
@@ -505,7 +507,7 @@ function setupHtml() {
   if (s === 3) {
     return `<div class="page">${back}<h1>Инвентарь</h1>
       <p class="lead">Стул, пол и своё тело есть всегда, их отмечать не нужно. Можно несколько.</p>
-      ${GEAR_GROUPS.map(group => `<div><div class="kicker">${esc(group[0])}</div><div class="group">${group[1].map(item => tick("gear", item[0], item[1], p.gear.indexOf(item[0]) >= 0)).join("")}</div></div>`).join("")}
+      ${gearFolders(p)}
       ${dock("next", "Дальше")}</div>`;
   }
   const base = [["cut", "Сжечь жир"], ["muscle", "Стать сильнее"], ["keep", "Держать форму"]];
@@ -519,6 +521,42 @@ function setupHtml() {
     <div class="group">${order.map(id => tick("goal", id, GOALS[id].label, p.goal === id, true)).join("")}</div>
     <p class="lead">Шесть рабочих дней и один спокойный. На таймере Джарвис каждый раз собирает новую фразу: сэр или мэм — по полу из анкеты.</p>
     ${dock("finish", "Собрать курс")}</div>`;
+}
+function gearFolders(p) {
+  return `<div class="folders">${GEAR_GROUPS.map((group, i) => {
+    const id = "g" + i;
+    const picked = group[1].filter(item => p.gear.indexOf(item[0]) >= 0).length;
+    return `<section class="folder${gearOpen === id ? " open" : ""}" data-folder="${id}">
+      <div class="folder-bar">
+        <button class="folder-name" data-act="folder" data-folder="${id}"><span>${esc(group[0])}</span><small>${picked ? picked : ""}</small></button>
+        <button class="foldx" data-act="foldclose" aria-label="Свернуть">×</button>
+      </div>
+      <div class="folder-body"><div class="folder-in"><div class="group">${group[1].map(item => tick("gear", item[0], item[1], p.gear.indexOf(item[0]) >= 0)).join("")}</div></div></div>
+    </section>`;
+  }).join("")}</div>`;
+}
+function exTime(ex) {
+  if (ex.kind === "time") {
+    const sec = ex.seconds || 0;
+    if (sec >= 60 && (ex.sets || 1) <= 1) return Math.round(sec / 60) + " мин";
+    if (sec > 0) return (ex.sets > 1 ? ex.sets + " × " : "") + sec + " с";
+  }
+  const sets = ex.sets || 1;
+  const total = sets * 40 + Math.max(0, sets - 1) * (ex.rest || 0);
+  return "≈ " + Math.max(1, Math.round(total / 60)) + " мин";
+}
+function exRow(ex, i) {
+  return `<button class="exrow" data-act="card" data-i="${i}"><span class="exico">${glyph(poseOf(ex))}</span><b>${esc(ex.name)}</b><span class="extime">${esc(exTime(ex))}</span></button>`;
+}
+function sheetHtml(block) {
+  if (sheet == null || !block.items[sheet]) return "";
+  const ex = block.items[sheet];
+  return `<div class="veil" data-act="closecard"><article class="sheet" data-act="hold">
+    <div class="sheet-top"><h2>${esc(ex.name)}</h2><button class="sheetx" data-act="closecard" aria-label="Закрыть">×</button></div>
+    <ol class="steps">${(ex.steps || []).map(step => `<li>${esc(step)}</li>`).join("")}</ol>
+    <div class="stage">${demo(poseOf(ex))}<span class="stage-time">${esc(exTime(ex))}</span></div>
+    <button class="primary" data-act="gostart" style="margin-top:14px">Начать</button>
+  </article></div>`;
 }
 function tick(key, id, label, on, single) {
   const attr = single ? `data-set="${key}"` : `data-toggle="${key}"`;
@@ -556,7 +594,7 @@ function mainHtml() {
   return `<div class="page">
     <div class="top"><div><div class="kicker">День ${day} из 30</div><h1>${esc(p.name || "Сегодня")}</h1></div><button class="link" data-act="reset">Сначала</button></div>
     <p class="jarvis" id="heard"${state.voiceMark && state.voiceMark.line ? "" : " hidden"}>${esc((state.voiceMark && state.voiceMark.line) || "")}</p>
-    <div class="stats"><div class="stat"><b>${t.kcal}</b><span>ккал</span></div><div class="stat"><b>${t.protein}</b><span>белок, г</span></div><div class="stat"><b>${t.bmi}</b><span>индекс</span></div></div>
+    <div class="stats"><div class="stat"><b>${Math.round(kcal)}</b><span>из ${t.kcal} ккал</span></div><div class="stat"><b>${Math.round(protein)}</b><span>из ${t.protein} г</span></div><div class="stat"><b>${t.bmi}</b><span>индекс</span></div></div>
     <div class="card"><div class="top"><b>Вода</b><span class="kicker">${drunk} / ${t.water} мл</span></div><div class="bar"><i style="width:${Math.min(100, t.water ? (drunk / t.water) * 100 : 0)}%"></i></div><button class="primary" data-act="water">+ 250 мл</button></div>
     <button class="tick" data-act="food" style="border-radius:16px"><span><b>Еда</b><br><small style="color:#6e6e73">${Math.round(kcal)} ккал · белок ${Math.round(protein)} г</small></span><span class="chev">›</span></button>
     <div>
@@ -564,9 +602,10 @@ function mainHtml() {
       <h1 style="font-size:28px">${esc(block.title)}</h1>
       ${block.flags.stop ? `<p class="lead" style="margin-top:8px">Отмечено состояние, при котором обычный курс лучше не включать. Сегодня ходьба и дыхание.</p>` : ""}
       ${banned ? `<p class="lead" style="margin-top:8px">Сегодня без: ${esc(banned)}.</p>` : ""}
-      <div class="group" style="margin-top:12px">${block.items.map((ex, i) => `<button class="tick ex" data-act="open" data-i="${i}"><span><b>${esc(ex.name)}</b><small>${block.rest ? esc(ex.dose) : ex.sets + " × " + esc(ex.dose)}</small></span><span class="chev">›</span></button>`).join("")}</div>
+      <div class="group" style="margin-top:12px">${block.items.map(exRow).join("")}</div>
     </div>
     <div class="days">${Array.from({ length: 30 }, (_, i) => `<button class="day ${day === i + 1 ? "on" : ""}" data-day="${i + 1}">${i + 1}</button>`).join("")}</div>
+    ${sheetHtml(block)}
   </div>`;
 }
 function foodHtml(t, meals, kcal, protein) {
@@ -848,6 +887,7 @@ function bind() {
       return;
     }
     if (el.dataset.day) {
+      sheet = null;
       state.day = +el.dataset.day;
       state.screen = "home";
       state.open = null;
@@ -856,6 +896,18 @@ function bind() {
       return;
     }
     const act = el.dataset.act;
+    if (act === "hold") return;
+    if (act === "folder") {
+      const id = el.dataset.folder;
+      gearOpen = gearOpen === id ? "" : id;
+      document.querySelectorAll(".folder").forEach(node => node.classList.toggle("open", node.dataset.folder === gearOpen));
+      return;
+    }
+    if (act === "foldclose") {
+      gearOpen = "";
+      document.querySelectorAll(".folder").forEach(node => node.classList.remove("open"));
+      return;
+    }
     if (act === "back") {
       readInputs();
       if (state.step > 0) state.step -= 1;
@@ -904,8 +956,21 @@ function bind() {
       render();
     } else if (act === "home") {
       stopScan();
+      sheet = null;
       state.screen = "home";
       state.open = null;
+      render();
+    } else if (act === "card") {
+      sheet = +el.dataset.i;
+      render();
+    } else if (act === "closecard") {
+      sheet = null;
+      render();
+    } else if (act === "gostart") {
+      state.open = sheet;
+      sheet = null;
+      state.screen = "move";
+      state.clock = null;
       render();
     } else if (act === "open") {
       state.open = +el.dataset.i;
